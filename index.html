@@ -4,22 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="theme-color" content="#0B0F19" />
-<title>Private Network Gateway — Pre-flight Checklist</title>
-<meta name="description" content="A pre-flight checklist for enabling Databricks serverless Private Network Gateway (PNG) on Azure — network, DNS, traffic mode, and validation." />
+<title>Serverless Private Connectivity — Pre-flight Checklist</title>
+<meta name="description" content="Interactive pre-flight checklist for Databricks serverless private connectivity — Private Network Gateway (Azure), private endpoint rules (AWS), and Private Service Connect (GCP)." />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%23FF3621'/><g fill='none' stroke='%23fff' stroke-width='3.5'><path d='M20 32H44'/><path d='M32 20V44'/></g><g fill='%23fff'><circle cx='32' cy='32' r='5'/><circle cx='20' cy='32' r='4'/><circle cx='44' cy='32' r='4'/><circle cx='32' cy='20' r='4'/><circle cx='32' cy='44' r='4'/></g></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0a0f1c; --bg-grad:#0b1220; --surface:#111827; --surface-2:#151d2e; --raised:#1f2937;
+    --bg:#0a0f1c; --surface:#111827; --surface-2:#151d2e; --raised:#1f2937;
     --border:#232f43; --border-2:#2c3a54;
     --text:#f3f4f6; --text-2:#9ca3af; --text-3:#6b7280;
     --accent:#ff3621; --accent-hover:#e62a17; --accent-dim:rgba(255,54,33,.14);
     --amber:#f59e0b; --amber-dim:rgba(245,158,11,.13);
     --blue:#3b82f6; --blue-dim:rgba(59,130,246,.14);
     --green:#10b981; --green-dim:rgba(16,185,129,.14);
-    --purple:#8b5cf6; --azure:#0078d4;
+    --aws:#ff9900; --azure:#3b9dff; --gcp:#4285f4;
     --r-sm:8px; --r-md:12px; --r-lg:16px;
     --sans:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -29,306 +29,379 @@
   body{margin:0;font-family:var(--sans);color:var(--text);line-height:1.6;
     background:radial-gradient(1100px 620px at 78% -8%,#12203b 0%,var(--bg) 46%) no-repeat,var(--bg);
     background-attachment:fixed;min-height:100vh;-webkit-font-smoothing:antialiased}
-  a{color:var(--accent);text-decoration:none}
-  a:hover{text-decoration:underline}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
 
-  /* header */
-  header{padding:56px 0 26px}
-  .kicker{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:.72rem;
-    letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
-  .kicker .plat{color:#cfe4ff;background:rgba(0,120,212,.16);border:1px solid rgba(0,120,212,.4);
-    padding:2px 8px;border-radius:999px;letter-spacing:.08em}
-  h1{font-size:2.55rem;line-height:1.06;font-weight:700;margin:16px 0 12px;letter-spacing:-.02em;text-wrap:balance}
+  header{padding:52px 0 22px}
+  .kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:2.5rem;line-height:1.06;font-weight:700;margin:14px 0 12px;letter-spacing:-.02em;text-wrap:balance}
   h1 .g{color:var(--accent)}
-  .sub{color:var(--text-2);font-size:1.08rem;max-width:64ch;margin:0}
+  .sub{color:var(--text-2);font-size:1.06rem;max-width:66ch;margin:0}
 
-  /* progress */
-  .progress-card{margin-top:26px;background:linear-gradient(180deg,var(--surface-2),var(--surface));
-    border:1px solid var(--border);border-radius:var(--r-lg);padding:20px 22px;
-    box-shadow:0 12px 34px -20px rgba(0,0,0,.8)}
-  .progress-top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
-  .progress-top .lbl{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+  /* control panel */
+  .controls{margin-top:24px;background:linear-gradient(180deg,var(--surface-2),var(--surface));
+    border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;box-shadow:0 12px 34px -20px rgba(0,0,0,.8)}
+  .ctl-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .ctl-group{display:flex;flex-direction:column;gap:8px}
+  .ctl-lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+  .seg{display:inline-flex;background:#0c1424;border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+  .seg button{font-family:var(--sans);font-size:.86rem;font-weight:600;color:var(--text-2);cursor:pointer;
+    border:0;background:transparent;padding:7px 14px;border-radius:7px;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+  .seg button:hover{color:var(--text)}
+  .seg button[aria-pressed="true"]{background:var(--raised);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,.04)}
+  .seg button .dot{width:8px;height:8px;border-radius:50%}
+  .seg button[data-v="azure"] .dot{background:var(--azure)}
+  .seg button[data-v="aws"] .dot{background:var(--aws)}
+  .seg button[data-v="gcp"] .dot{background:var(--gcp)}
+  .seg.cloud button[aria-pressed="true"][data-v="azure"]{box-shadow:inset 0 0 0 1px rgba(59,157,255,.5)}
+  .seg.cloud button[aria-pressed="true"][data-v="aws"]{box-shadow:inset 0 0 0 1px rgba(255,153,0,.5)}
+  .seg.cloud button[aria-pressed="true"][data-v="gcp"]{box-shadow:inset 0 0 0 1px rgba(66,133,244,.5)}
+
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip-f{font-family:var(--sans);font-size:.78rem;font-weight:600;color:var(--text-2);cursor:pointer;
+    background:#0c1424;border:1px solid var(--border);border-radius:999px;padding:5px 12px;transition:.15s}
+  .chip-f:hover{border-color:var(--border-2);color:var(--text)}
+  .chip-f[aria-pressed="true"]{background:var(--accent-dim);border-color:rgba(255,54,33,.45);color:#ffb4a6}
+
+  .ctl-div{height:1px;background:var(--border);margin:16px 0 14px}
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
   .progress-top .pct{font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
-  .progress-top .pct b{font-size:1.5rem;color:var(--text)}
-  .bar{height:9px;border-radius:999px;background:#0c1striped;background:#0c1424;border:1px solid var(--border);margin-top:12px;overflow:hidden}
-  .bar>i{display:block;height:100%;width:0;border-radius:999px;
-    background:linear-gradient(90deg,var(--accent),#ff7a5c);transition:width .45s cubic-bezier(.2,.7,.2,1)}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
-  .btn{font-family:var(--sans);font-size:.82rem;font-weight:600;cursor:pointer;
-    border-radius:var(--r-sm);padding:7px 13px;border:1px solid var(--border-2);
-    background:var(--raised);color:var(--text);transition:background .15s,border-color .15s}
+  .progress-top .pct b{font-size:1.35rem;color:var(--text)}
+  .progress-top .scope{font-family:var(--mono);font-size:.72rem;color:var(--text-3)}
+  .bar{height:8px;border-radius:999px;background:#0c1424;border:1px solid var(--border);margin-top:10px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--accent),#ff7a5c);transition:width .45s cubic-bezier(.2,.7,.2,1)}
+  .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .btn{font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;border-radius:var(--r-sm);
+    padding:7px 12px;border:1px solid var(--border-2);background:var(--raised);color:var(--text);transition:.15s;display:inline-flex;gap:6px;align-items:center}
   .btn:hover{background:#26324a;border-color:#3a4a68}
   .btn.ghost{background:transparent}
   .btn .k{color:var(--text-3);font-weight:500}
 
-  /* legend */
-  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
-  .badge{font-family:var(--mono);font-size:.66rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
-    padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
-  .badge.req{color:var(--accent);background:var(--accent-dim);border-color:rgba(255,54,33,.35)}
-  .badge.rec{color:#93c5fd;background:var(--blue-dim);border-color:rgba(59,130,246,.35)}
-  .badge.got{color:#fcd34d;background:var(--amber-dim);border-color:rgba(245,158,11,.35)}
+  /* cloud banner */
+  .cloudbanner{margin-top:20px;border-radius:var(--r-md);padding:14px 16px;font-size:.9rem;color:var(--text-2);
+    background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--azure)}
+  .cloudbanner.aws{border-left-color:var(--aws)}.cloudbanner.gcp{border-left-color:var(--gcp)}
+  .cloudbanner b{color:var(--text)}
+  .cloudbanner .mech{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);display:block;margin-bottom:5px}
 
-  /* section */
-  section{margin-top:34px}
-  .sec-head{display:flex;align-items:center;gap:13px;cursor:pointer;user-select:none;padding:6px 0}
-  .sec-ico{width:38px;height:38px;border-radius:var(--r-md);display:grid;place-items:center;flex:none;
-    background:var(--accent-dim);border:1px solid rgba(255,54,33,.3)}
-  .sec-ico svg{width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-  .sec-head h2{font-size:1.24rem;font-weight:700;margin:0;letter-spacing:-.01em;flex:1}
-  .sec-count{font-family:var(--mono);font-size:.75rem;color:var(--text-3);font-variant-numeric:tabular-nums}
+  section{margin-top:26px}
+  .sec-head{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;padding:6px 0}
+  .sec-ico{width:36px;height:36px;border-radius:var(--r-md);display:grid;place-items:center;flex:none;background:var(--accent-dim);border:1px solid rgba(255,54,33,.3)}
+  .sec-ico svg{width:19px;height:19px;stroke:var(--accent);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .sec-head h2{font-size:1.18rem;font-weight:700;margin:0;letter-spacing:-.01em;flex:1}
+  .sec-count{font-family:var(--mono);font-size:.74rem;color:var(--text-3);font-variant-numeric:tabular-nums}
   .sec-chev{color:var(--text-3);transition:transform .25s}
   section.collapsed .sec-chev{transform:rotate(-90deg)}
   section.collapsed .items{display:none}
-  .items{display:flex;flex-direction:column;gap:11px;margin-top:14px}
+  .items{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 
-  /* item */
-  .item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
-    padding:15px 17px;display:grid;grid-template-columns:auto 1fr;gap:14px;transition:border-color .15s,background .15s}
+  .item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;
+    display:grid;grid-template-columns:auto 1fr;gap:13px;transition:.15s}
   .item:hover{border-color:var(--border-2)}
   .item.done{background:var(--surface-2);border-color:#1c2740}
   .item.done .it-title{color:var(--text-2);text-decoration:line-through;text-decoration-color:var(--text-3)}
-  .cbx{appearance:none;-webkit-appearance:none;width:22px;height:22px;margin-top:2px;flex:none;cursor:pointer;
+  .cbx{appearance:none;-webkit-appearance:none;width:21px;height:21px;margin-top:2px;flex:none;cursor:pointer;
     border:1.8px solid var(--border-2);border-radius:7px;background:#0c1424;position:relative;transition:.15s}
   .cbx:hover{border-color:var(--accent)}
   .cbx:checked{background:var(--accent);border-color:var(--accent)}
-  .cbx:checked::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;
-    border:solid #fff;border-width:0 2.4px 2.4px 0;transform:rotate(43deg)}
-  .it-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-  .it-title{font-weight:600;font-size:1rem;letter-spacing:-.01em}
-  .it-body{color:var(--text-2);font-size:.92rem;margin:7px 0 0}
+  .cbx:checked::after{content:"";position:absolute;left:6.5px;top:2.5px;width:5px;height:10px;border:solid #fff;border-width:0 2.4px 2.4px 0;transform:rotate(43deg)}
+  .it-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .it-title{font-weight:600;font-size:.98rem;letter-spacing:-.01em}
+  .it-body{color:var(--text-2);font-size:.9rem;margin:6px 0 0}
   .it-body b{color:var(--text);font-weight:600}
-  .it-body code{font-family:var(--mono);font-size:.85em;background:#0c1424;border:1px solid var(--border);
-    border-radius:5px;padding:1px 6px;color:#cbd5e1}
+  .it-body code,.cloudbanner code{font-family:var(--mono);font-size:.85em;background:#0c1424;border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:#cbd5e1}
+  .badge{font-family:var(--mono);font-size:.63rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+  .badge.req{color:var(--accent);background:var(--accent-dim);border-color:rgba(255,54,33,.35)}
+  .badge.rec{color:#93c5fd;background:var(--blue-dim);border-color:rgba(59,130,246,.35)}
+  .badge.got{color:#fcd34d;background:var(--amber-dim);border-color:rgba(245,158,11,.35)}
+  .cloudtags{display:inline-flex;gap:4px}
+  .ctag{font-family:var(--mono);font-size:.58rem;font-weight:600;padding:2px 6px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em}
+  .ctag.azure{color:#bfe0ff;background:rgba(59,157,255,.14)}
+  .ctag.aws{color:#ffdda8;background:rgba(255,153,0,.14)}
+  .ctag.gcp{color:#c3d4ff;background:rgba(66,133,244,.14)}
 
-  /* callout */
-  .call{margin-top:11px;border-radius:var(--r-sm);padding:11px 13px;font-size:.87rem;
-    border:1px solid var(--border);border-left-width:3px}
+  .call{margin-top:10px;border-radius:var(--r-sm);padding:11px 13px;font-size:.86rem;border:1px solid var(--border);border-left-width:3px}
   .call.got{background:var(--amber-dim);border-left-color:var(--amber);color:#fde3b0}
   .call.got b{color:#fff}
-  .call .ct{font-family:var(--mono);font-size:.64rem;letter-spacing:.1em;text-transform:uppercase;
-    color:var(--amber);font-weight:600;display:block;margin-bottom:4px}
+  .call .ct{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);font-weight:600;display:block;margin-bottom:4px}
 
-  /* code */
-  pre{margin:11px 0 0;background:#070b14;border:1px solid var(--border);border-radius:var(--r-sm);
-    padding:12px 14px;overflow-x:auto}
-  pre code{font-family:var(--mono);font-size:.8rem;line-height:1.62;color:#c8d3e6;white-space:pre}
-  pre .c{color:#5b6b86}.pre .k,pre .k{color:#7fb2f0}pre .s{color:#8fd6a0}pre .n{color:#e6b566}
+  pre{margin:10px 0 0;background:#070b14;border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;overflow-x:auto}
+  pre code{font-family:var(--mono);font-size:.79rem;line-height:1.62;color:#c8d3e6;white-space:pre;background:none;border:0;padding:0}
+  pre .c{color:#5b6b86}pre .s{color:#8fd6a0}pre .n{color:#e6b566}
 
-  footer{margin:56px 0 60px;padding-top:22px;border-top:1px solid var(--border);color:var(--text-3);font-size:.83rem}
-  footer a{color:var(--text-2)}
-  footer .disc{margin-top:10px;font-size:.78rem;color:var(--text-3);max-width:70ch}
+  .empty{text-align:center;color:var(--text-3);padding:40px 0;font-size:.92rem}
+  footer{margin:50px 0 60px;padding-top:20px;border-top:1px solid var(--border);color:var(--text-3);font-size:.82rem}
+  footer .disc{margin-top:9px;font-size:.77rem;max-width:74ch}
 
-  @media(max-width:560px){
-    header{padding:40px 0 20px}h1{font-size:2rem}
-    .item{grid-template-columns:auto 1fr;padding:13px 14px}
-  }
+  @media(max-width:600px){header{padding:38px 0 18px}h1{font-size:1.95rem}.ctl-row{gap:16px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto}}
+  @media print{
+    body{background:#fff;color:#000}.controls .actions,.sec-chev,.cbx{display:none!important}
+    .item,.controls,.cloudbanner,pre{border-color:#ccc!important;background:#fff!important;color:#000!important}
+    .it-body,.sub{color:#222!important}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="kicker"><span>Databricks · Serverless Networking</span><span class="plat">Azure</span></div>
-    <h1>Private Network Gateway<br><span class="g">Pre-flight Checklist</span></h1>
-    <p class="sub">Everything to verify <em>before</em> enabling a Private Network Gateway (PNG) so serverless compute can reach your private and on-prem resources — without breaking DNS for the public internet. Progress saves automatically in your browser.</p>
+    <div class="kicker">Databricks · Serverless Private Connectivity</div>
+    <h1>Serverless Private Connectivity<br><span class="g">Pre-flight Checklist</span></h1>
+    <p class="sub">Verify everything <em>before</em> connecting serverless compute to private, on-prem, or restricted resources — and without breaking public DNS. Pick your cloud and what you're connecting to; the checklist adapts. Progress saves in your browser.</p>
 
-    <div class="progress-card">
+    <div class="controls">
+      <div class="ctl-row">
+        <div class="ctl-group">
+          <span class="ctl-lbl">Cloud</span>
+          <div class="seg cloud" id="cloudSeg" role="group" aria-label="Cloud">
+            <button data-v="azure" aria-pressed="true"><span class="dot"></span>Azure</button>
+            <button data-v="aws" aria-pressed="false"><span class="dot"></span>AWS</button>
+            <button data-v="gcp" aria-pressed="false"><span class="dot"></span>GCP</button>
+          </div>
+        </div>
+        <div class="ctl-group">
+          <span class="ctl-lbl">Connecting to</span>
+          <div class="seg" id="targetSeg" role="group" aria-label="Connection target">
+            <button data-v="onprem" aria-pressed="true">On-prem / private network</button>
+            <button data-v="internal" aria-pressed="false">Cloud-internal service</button>
+            <button data-v="public" aria-pressed="false">Public / SaaS</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctl-div"></div>
+
       <div class="progress-top">
-        <span class="lbl">Readiness</span>
-        <span class="pct"><b id="pctNum">0%</b> &nbsp;<span id="pctFrac" style="color:var(--text-3)">0 / 0 complete</span></span>
+        <span class="ctl-lbl">Readiness for your scenario</span>
+        <span class="pct"><b id="pctNum">0%</b> &nbsp;<span class="scope" id="pctFrac">0 / 0</span></span>
       </div>
       <div class="bar"><i id="barFill"></i></div>
-      <div class="toolbar">
+
+      <div class="ctl-row" style="margin-top:14px;align-items:center;justify-content:space-between">
+        <div class="chips" id="catChips" role="group" aria-label="Filter by type">
+          <button class="chip-f" data-c="all" aria-pressed="true">All</button>
+          <button class="chip-f" data-c="req" aria-pressed="false">Required</button>
+          <button class="chip-f" data-c="rec" aria-pressed="false">Recommended</button>
+          <button class="chip-f" data-c="got" aria-pressed="false">Gotchas</button>
+        </div>
+      </div>
+      <div class="actions">
         <button class="btn" id="expandAll">Expand all</button>
         <button class="btn" id="collapseAll">Collapse all</button>
         <button class="btn ghost" id="hideDone">Hide completed</button>
+        <button class="btn ghost" id="copyMd"><span class="k">⧉</span> Copy as Markdown</button>
+        <button class="btn ghost" id="printBtn"><span class="k">⎙</span> Print</button>
         <button class="btn ghost" id="resetAll"><span class="k">↺</span> Reset</button>
       </div>
-      <div class="legend">
-        <span class="badge req">Required</span>
-        <span class="badge rec">Recommended</span>
-        <span class="badge got">Gotcha</span>
-      </div>
     </div>
+
+    <div class="cloudbanner" id="cloudBanner"></div>
   </header>
 
   <main id="list"></main>
 
   <footer>
-    <p>An engineering pre-flight aid for Databricks serverless <b>Private Network Gateway</b> on Azure. Not official documentation — always confirm against the current Databricks docs and your cloud/network team.</p>
-    <p class="disc">PNG configuration fields (<code style="font-family:var(--mono)">private_dns_resolvers</code>, <code style="font-family:var(--mono)">traffic_mode</code>, <code style="font-family:var(--mono)">destinations</code>) and behavior evolve; validate in a non-production workspace first. Built by Chris Moon.</p>
+    <p>An engineering pre-flight aid for Databricks serverless private connectivity — <b>Private Network Gateway</b> (Azure), <b>private endpoint rules</b> (AWS), and <b>Private Service Connect</b> (GCP), all on a Network Connectivity Configuration (NCC). Not official documentation.</p>
+    <p class="disc">Serverless networking features and config fields evolve; validate in a non-production workspace and confirm against current Databricks docs. Built by Chris Moon.</p>
   </footer>
 </div>
 
 <script>
-const ICONS = {
-  gear:'<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/>',
+const ICONS={
+  gear:'<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8 2 2 0 11-2.7 2.7 1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0 1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3 2 2 0 11-2.7-2.7 1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4 1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8 2 2 0 112.7-2.7 1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0 1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3 2 2 0 112.7 2.7 1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/>',
   net:'<circle cx="5" cy="12" r="2.4"/><circle cx="19" cy="6" r="2.4"/><circle cx="19" cy="18" r="2.4"/><path d="M7.2 11l9.6-4M7.2 13l9.6 4"/>',
-  dns:'<path d="M12 3a15 15 0 010 18 15 15 0 010-18z"/><path d="M3 12h18"/><circle cx="12" cy="12" r="9"/>',
+  dns:'<circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 010 18 15 15 0 010-18zM3 12h18"/>',
   route:'<circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="5" r="2.2"/><path d="M8 19h6a4 4 0 000-8H9a4 4 0 010-8h5"/>',
   check:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>'
 };
+const ALL=['azure','aws','gcp'], ALLT=['onprem','internal','public'];
+const CLOUD_LABEL={azure:'Azure',aws:'AWS',gcp:'GCP'};
+const BANNERS={
+  azure:{mech:'Mechanism · Azure',h:'<b>Private Network Gateway (PNG)</b> on an NCC routes serverless egress to private/on-prem targets and uses your <b>private DNS resolver</b> for name resolution. Configured with <code>private_dns_resolvers</code>, <code>traffic_mode</code>, and <code>destinations</code>. The DNS items below are the ones that most often bite.'},
+  aws:{mech:'Mechanism · AWS',h:'AWS has <b>no PNG</b>. Serverless reaches private resources through <b>NCC private endpoint rules</b> (AWS PrivateLink to a VPC endpoint service or an NLB-fronted target) and <b>serverless network policies</b> (egress firewall). There is no customer DNS-resolver injection, so the Azure DNS-resolver gotchas don\'t apply — but private endpoint rule propagation can take up to 24h.'},
+  gcp:{mech:'Mechanism · GCP',h:'GCP uses an NCC with <b>Private Service Connect (PSC)</b> to reach private resources from serverless, plus serverless network policies for egress control. Configure a PSC endpoint to the target\'s service attachment rather than a gateway.'}
+};
 
-const DATA = [
-  { id:'prereq', title:'Account & NCC prerequisites', icon:'gear', items:[
-    { id:'ncc', tag:'req', title:'NCC created and attached to the workspace',
-      body:'PNG is configured on a <b>Network Connectivity Configuration (NCC)</b>. Create the NCC (account-admin required), attach it to the target workspace, and confirm the <b>NCC region matches the workspace region</b>.' },
-    { id:'landing', tag:'req', title:'Azure landing zone ready',
-      body:'Subscription, resource group, VNet, and a <b>dedicated subnet delegated to the serverless gateway</b> all exist and are captured for the gateway config.',
-      code:`<span class="c"># values you'll need for the gateway body</span>
-subscriptionId  = "…"
-resourceGroup   = "rg-…"
-vnetName        = "vnet-…"
-subnetName      = "sn-…-databricksprivate-…"   <span class="c"># dedicated + delegated</span>` },
-  ]},
-  { id:'net', title:'Subnet & routing', icon:'net', items:[
-    { id:'subnet', tag:'req', title:'Dedicated, correctly-delegated gateway subnet',
-      body:'The gateway subnet is <b>not shared</b> with other workloads, has the correct Databricks delegation, and has adequate address space with <b>no overlap</b> with peered or on-prem ranges.' },
-    { id:'routing', tag:'req', title:'Routing to the private targets is in place',
-      body:'VNet peering / ExpressRoute / Site-to-Site VPN connects the gateway subnet to the private targets. Confirm <b>effective routes</b> actually cover the target CIDRs (not just that peering exists).' },
-    { id:'nsg', tag:'req', title:'NSG / firewall permits the required flows',
-      body:'The gateway subnet is allowed outbound to the target services <b>and to the DNS resolver on TCP/UDP 53</b>. A blocked :53 path is the most common silent DNS failure.' },
-  ]},
-  { id:'dns', title:'DNS — the make-or-break section', icon:'dns', items:[
-    { id:'resolver', tag:'req', title:'private_dns_resolvers points at a reachable resolver',
-      body:'Set the resolver IP(s) that PNG will use for name resolution. Once PNG is on, this resolver becomes the DNS path for serverless — so it must resolve <b>both</b> your private zones and (see below) public names.',
-      code:`"private_dns_resolvers": [
-  { "resolver_type": "IP_ADDRESS", "value": "10.160.8.132" }
-]` },
-    { id:'recursion', tag:'got', title:'Resolver recurses/forwards public queries',
-      body:'A resolver that only serves internal zones will <b>fail every public lookup</b>. Configure conditional forwarding: private zones → internal DNS; <b>everything else → a recursive upstream</b> (Azure <code>168.63.129.16</code> or a public resolver).',
-      callout:{ t:'Known failure mode', h:'If the resolver reports <b>“recursion not available”</b> and/or intermittently <b>refuses connections</b> on :53, public hosts fail with <b>“Failed to resolve … Temporary failure in name resolution” (EAI_AGAIN)</b> — often mid-job, after many successful requests. That is a DNS/resolver problem, not the target being down.' } },
-    { id:'reachable', tag:'req', title:'Resolver is reachable and highly available',
-      body:'Test the resolver from the gateway path on :53. Intermittent <code>connection refused</code> / timeout → intermittent job failures. Make it HA; a single flaky resolver becomes a single point of failure for all serverless DNS.' },
-    { id:'scoped', tag:'rec', title:'Prefer scoped / conditional DNS',
-      body:'Route <b>only private zones</b> to the internal resolver and let public names resolve via public DNS. Then explicitly verify public resolution still works under your chosen traffic mode (next section).' },
-  ]},
-  { id:'traffic', title:'Traffic mode & destinations', icon:'route', items:[
-    { id:'mode', tag:'req', title:'traffic_mode chosen deliberately',
-      body:'<code>SPECIFIC_DESTINATIONS</code> routes only the listed private FQDNs/CIDRs through PNG (everything else goes direct); <code>ALL_TRAFFIC</code> sends all serverless egress through the gateway. Pick the narrowest that meets the need.',
-      code:`"traffic_mode": "SPECIFIC_DESTINATIONS",
-"destinations": [
-  { "destination_type": "DNS_NAME", "value": "sqlhost.intra.local" }
-]` },
-    { id:'scope-gotcha', tag:'got', title:'Traffic scoping ≠ DNS scoping',
-      body:'A narrow <code>SPECIFIC_DESTINATIONS</code> policy scopes network <b>routing</b>, but the private resolver can still be applied to <b>all</b> DNS resolution. So a “private-only” traffic policy can still hijack public name resolution.',
-      callout:{ t:'Validate this explicitly', h:'After enabling PNG with a scoped traffic mode, confirm a <b>public</b> hostname still resolves from serverless. Do not assume scoping the destinations also scoped DNS.' } },
-  ]},
-  { id:'validate', title:'Validation smoke tests', icon:'check', items:[
-    { id:'resolv', tag:'req', title:'Confirm the injected resolver + resolve both sides',
-      body:'From a serverless notebook, check which resolver is actually in use, then resolve a <b>private</b> target and a <b>public</b> dependency.',
-      code:`<span class="c">%sh</span>
-cat /etc/resolv.conf              <span class="c"># confirm the resolver IP</span>
-nslookup sqlhost.intra.local      <span class="c"># private target</span>
-nslookup www.example.com          <span class="c"># public dependency</span>
-dig +short www.example.com` },
-    { id:'private-conn', tag:'req', title:'Validate the actual private connection',
-      body:'Resolving isn’t connecting. Run the real workload against the private target (e.g., JDBC to your SQL Server on 1433).',
-      code:`url = ("jdbc:sqlserver://sqlhost.intra.local:1433;"
-       "database=DB;encrypt=true;trustServerCertificate=true")
-df = (spark.read.format("jdbc").option("url", url)
-      .option("dbtable","dbo.MyTable")
-      .option("user","…").option("password","…").load())
-display(df.limit(10))` },
-    { id:'public-dep', tag:'req', title:'Validate public dependencies still work',
-      body:'The most-missed check. Every external REST/API/package host your jobs call must still resolve and connect once PNG is on. This is exactly where scoped-traffic-but-global-DNS setups break.' },
-    { id:'e2e', tag:'req', title:'Run the real job end-to-end before sign-off',
-      body:'PNG issues typically surface on the <b>next scheduled run</b>, not in a quick interactive test. Run the full pipeline once with PNG enabled before declaring success.' },
-  ]},
-  { id:'ops', title:'Operational readiness', icon:'shield', items:[
-    { id:'retry', tag:'rec', title:'Make jobs resilient to transient DNS blips',
-      body:'Add retry-with-backoff on <code>NameResolutionError</code>/<code>ConnectionError</code> and checkpoint long paginated pulls, so one transient resolver blip doesn’t kill a multi-hour job.',
-      code:`import time, requests
-def get_with_retry(url, **kw):
-    for i in range(5):
-        try:
-            return requests.get(url, timeout=30, **kw)
-        except requests.exceptions.ConnectionError:
-            if i == 4: raise
-            time.sleep(2 ** i)   <span class="c"># 1,2,4,8s backoff</span>` },
-    { id:'monitor', tag:'rec', title:'Monitor resolver + gateway health',
-      body:'Alert on DNS resolution failures and resolver/gateway availability so you catch a degraded resolver before a customer job does.' },
-    { id:'runbook', tag:'rec', title:'Document a change runbook',
-      body:'Capture that (re)enabling PNG changes DNS behavior on the next run, who owns the resolver, and how to roll back. Treat PNG enable/disable as a change event, not a toggle.' },
-  ]},
+// item.clouds / item.targets default to ALL; title/body/code may be a string or {azure,aws,gcp}
+const DATA=[
+ {id:'prereq',title:'Account & NCC prerequisites',icon:'gear',items:[
+   {id:'ncc',tag:'req',title:'NCC created and attached to the workspace',
+    body:'Serverless private connectivity is built on a <b>Network Connectivity Configuration</b> — an account-level, regional construct (account-admin to create). Attach it to the target workspace and confirm the <b>NCC region matches the workspace region</b>.'},
+   {id:'land',tag:'req',title:{azure:'Azure landing zone ready',aws:'PrivateLink target published',gcp:'PSC service attachment ready'},
+    body:{
+      azure:'Subscription, resource group, VNet, and a <b>dedicated subnet delegated to the serverless gateway</b> exist and are captured for the PNG config.',
+      aws:'The private target is fronted by an <b>AWS PrivateLink VPC endpoint service</b> (or an NLB), and you have its <b>service name</b> (e.g. <code>com.amazonaws.vpce.&lt;region&gt;.vpce-svc-…</code>) for the private endpoint rule.',
+      gcp:'The private target is exposed via a <b>PSC service attachment</b>, and you have its URI to create the PSC endpoint from the NCC.'},
+    code:{
+      aws:'<span class="c"># NCC private endpoint rule targets this</span>\nendpoint_service = "com.amazonaws.vpce.us-east-1.vpce-svc-0abc123"',
+      gcp:'<span class="c"># PSC endpoint targets this service attachment</span>\ntarget = "projects/PROJ/regions/REGION/serviceAttachments/NAME"'}},
+ ]},
+ {id:'reach',title:'Reaching the private target',icon:'net',items:[
+   {id:'subnet',tag:'req',clouds:['azure'],targets:['onprem','internal'],title:'Dedicated, delegated gateway subnet',
+    body:'The PNG gateway subnet is <b>not shared</b> with other workloads, has the correct Databricks delegation, and adequate address space with <b>no overlap</b> with peered/on-prem ranges.'},
+   {id:'route',tag:'req',clouds:['azure'],targets:['onprem'],title:'Routing to on-prem is in place',
+    body:'VNet peering / ExpressRoute / Site-to-Site VPN connects the gateway subnet to on-prem. Confirm <b>effective routes</b> actually cover the target CIDRs — not just that peering exists.'},
+   {id:'pe-rule',tag:'req',clouds:['aws'],targets:['internal','onprem'],title:'Private endpoint rule points at the right service',
+    body:'Create the NCC <b>private endpoint rule</b> with the exact PrivateLink <b>service name</b>, approve the endpoint connection on the target side, and confirm it reaches an approved state.',
+    callout:{t:'Propagation delay',h:'Private endpoint rule changes usually apply within ~10 minutes but can take <b>up to 24 hours</b>. Don\'t treat a fresh rule as live immediately.'}},
+   {id:'psc-rule',tag:'req',clouds:['gcp'],targets:['internal','onprem'],title:'PSC endpoint created and accepted',
+    body:'Create the PSC endpoint from the NCC to the target service attachment, and ensure the producer side <b>accepts</b> the connection.'},
+   {id:'fw',tag:'req',targets:['onprem','internal'],title:{azure:'NSG / firewall permits the flows',aws:'Security groups / firewall permit the flows',gcp:'Firewall rules permit the flows'},
+    body:{
+      azure:'The gateway subnet is allowed outbound to the target ports <b>and to the DNS resolver on TCP/UDP&nbsp;53</b>. A blocked :53 path is the most common silent DNS failure.',
+      aws:'The target\'s security groups allow inbound from the endpoint, and the endpoint service accepts the connection. Confirm target ports are open end-to-end.',
+      gcp:'Firewall rules allow the PSC endpoint to reach the target on the required ports.'}},
+ ]},
+ {id:'dns',title:'DNS',icon:'dns',items:[
+   {id:'resolver',tag:'req',clouds:['azure'],title:'private_dns_resolvers points at a reachable resolver',
+    body:'Set the resolver IP(s) PNG uses. Once PNG is on, this resolver becomes the DNS path for serverless — so it must resolve <b>both</b> your private zones and public names.',
+    code:{azure:'"private_dns_resolvers": [\n  { "resolver_type": "IP_ADDRESS", "value": "10.160.8.132" }\n]'}},
+   {id:'recursion',tag:'got',clouds:['azure'],title:'Resolver recurses / forwards public queries',
+    body:'A resolver that only serves internal zones will <b>fail every public lookup</b>. Configure conditional forwarding: private zones → internal DNS; <b>everything else → a recursive upstream</b> (Azure <code>168.63.129.16</code> or a public resolver).',
+    callout:{t:'Known failure mode',h:'If the resolver reports <b>“recursion not available”</b> and/or intermittently <b>refuses connections</b> on :53, public hosts fail with <b>“Temporary failure in name resolution” (EAI_AGAIN)</b> — often mid-job after many successful requests. That\'s a resolver problem, not the target being down.'}},
+   {id:'reachable',tag:'req',clouds:['azure'],targets:['onprem','internal'],title:'Resolver is reachable and highly available',
+    body:'Test the resolver on :53 from the gateway path. Intermittent <code>connection refused</code>/timeout → intermittent job failures. Make it HA; a single flaky resolver is a single point of failure for all serverless DNS.'},
+   {id:'scoped',tag:'rec',clouds:['azure'],title:'Prefer scoped / conditional DNS',
+    body:'Route <b>only private zones</b> to the internal resolver; let public names resolve via public DNS. Then explicitly verify public resolution still works under your traffic mode.'},
+   {id:'dns-cloud',tag:'rec',clouds:['aws','gcp'],title:'DNS resolves to the private endpoint',
+    body:{
+      aws:'With private DNS enabled on the endpoint, the target\'s hostname resolves to the <b>private endpoint IP</b> from serverless. Confirm resolution returns the private address, not a public one.',
+      gcp:'Confirm the target hostname resolves to the <b>PSC endpoint IP</b> from serverless (private DNS / Cloud DNS peering configured as needed).'}},
+ ]},
+ {id:'scope',title:'Egress scope & destinations',icon:'route',items:[
+   {id:'mode',tag:'req',clouds:['azure'],targets:['onprem','internal'],title:'traffic_mode chosen deliberately',
+    body:'<code>SPECIFIC_DESTINATIONS</code> routes only the listed private FQDNs/CIDRs through PNG (everything else goes direct); <code>ALL_TRAFFIC</code> sends all serverless egress through the gateway. Pick the narrowest that meets the need.',
+    code:{azure:'"traffic_mode": "SPECIFIC_DESTINATIONS",\n"destinations": [\n  { "destination_type": "DNS_NAME", "value": "sqlhost.intra.local" }\n]'}},
+   {id:'scope-gotcha',tag:'got',clouds:['azure'],title:'Traffic scoping ≠ DNS scoping',
+    body:'A narrow <code>SPECIFIC_DESTINATIONS</code> policy scopes network <b>routing</b>, but the private resolver can still apply to <b>all</b> DNS resolution — so a “private-only” traffic policy can still hijack public name resolution.',
+    callout:{t:'Validate explicitly',h:'After enabling PNG with a scoped traffic mode, confirm a <b>public</b> hostname still resolves from serverless. Don\'t assume scoping destinations also scoped DNS.'}},
+   {id:'netpol',tag:'req',clouds:['aws','gcp'],targets:['public'],title:'Public/SaaS host allowlisted in the egress firewall',
+    body:'If serverless <b>egress control (network policy)</b> is enabled, outbound is allowlist-based. Add every external REST/API/SaaS host your jobs call (FQDN) to the policy, or the connection is dropped.'},
+   {id:'netpol-az',tag:'req',clouds:['azure'],targets:['public'],title:'Public/SaaS reachability under PNG',
+    body:'Confirm public/SaaS endpoints your jobs call still <b>resolve and connect</b> once PNG is enabled — the resolver must forward their names (see DNS section). This is the most common PNG regression.'},
+ ]},
+ {id:'validate',title:'Validation smoke tests',icon:'check',items:[
+   {id:'resolv',tag:'req',title:{azure:'Confirm the injected resolver + resolve both sides',aws:'Resolve the target from serverless',gcp:'Resolve the target from serverless'},
+    body:{
+      azure:'From a serverless notebook, check which resolver is actually in use, then resolve a <b>private</b> target and a <b>public</b> dependency.',
+      aws:'From a serverless notebook, confirm the target resolves to its <b>private</b> endpoint address, and that public dependencies still resolve.',
+      gcp:'From a serverless notebook, confirm the target resolves to its <b>PSC</b> endpoint address, and that public dependencies still resolve.'},
+    code:{
+      azure:'<span class="c">%sh</span>\ncat /etc/resolv.conf              <span class="c"># confirm the resolver IP</span>\nnslookup sqlhost.intra.local      <span class="c"># private target</span>\nnslookup www.example.com          <span class="c"># public dependency</span>',
+      aws:'<span class="c">%sh</span>\nnslookup my-service.internal      <span class="c"># should return the private endpoint IP</span>\nnslookup www.example.com          <span class="c"># public dependency still works?</span>',
+      gcp:'<span class="c">%sh</span>\nnslookup my-service.internal      <span class="c"># should return the PSC endpoint IP</span>\nnslookup www.example.com          <span class="c"># public dependency still works?</span>'}},
+   {id:'conn',tag:'req',targets:['onprem','internal'],title:'Validate the actual private connection',
+    body:'Resolving isn\'t connecting. Run the real workload against the private target (e.g., JDBC to a SQL Server on 1433) — end to end, not just a ping.',
+    code:'url = ("jdbc:sqlserver://sqlhost.intra.local:1433;"\n       "database=DB;encrypt=true;trustServerCertificate=true")\ndf = (spark.read.format("jdbc").option("url", url)\n      .option("dbtable","dbo.MyTable")\n      .option("user","…").option("password","…").load())\ndisplay(df.limit(10))'},
+   {id:'pubdep',tag:'req',targets:['public','onprem','internal'],title:'Validate public dependencies still work',
+    body:'The most-missed check. Every external REST/API/package host your jobs call must still resolve and connect once private connectivity is on. This is exactly where scoped-routing-but-global-DNS (Azure) or a too-tight egress policy (AWS/GCP) breaks jobs.'},
+   {id:'e2e',tag:'req',title:'Run the real job end-to-end before sign-off',
+    body:'These issues surface on the <b>next scheduled run</b>, not in a quick interactive test. Run the full pipeline once with private connectivity enabled before declaring success.'},
+ ]},
+ {id:'ops',title:'Operational readiness',icon:'shield',items:[
+   {id:'retry',tag:'rec',title:'Make jobs resilient to transient blips',
+    body:'Add retry-with-backoff on <code>NameResolutionError</code>/<code>ConnectionError</code> and checkpoint long paginated pulls, so one transient blip doesn\'t kill a multi-hour job.',
+    code:'import time, requests\ndef get_with_retry(url, **kw):\n    for i in range(5):\n        try:\n            return requests.get(url, timeout=30, **kw)\n        except requests.exceptions.ConnectionError:\n            if i == 4: raise\n            time.sleep(2 ** i)   <span class="c"># 1,2,4,8s backoff</span>'},
+   {id:'monitor',tag:'rec',title:'Monitor connectivity + resolver/endpoint health',
+    body:{
+      azure:'Alert on DNS resolution failures and resolver/gateway availability so you catch a degraded resolver before a customer job does.',
+      aws:'Alert on private endpoint health and DNS resolution; watch for rules stuck pending or dropped by the egress policy.',
+      gcp:'Alert on PSC endpoint health and DNS resolution; watch for connections rejected by the producer.'}},
+   {id:'runbook',tag:'rec',title:'Document a change runbook',
+    body:'Capture that enabling/changing private connectivity affects behavior on the next run, who owns the resolver/endpoint, and how to roll back. Treat it as a change event, not a toggle.'},
+ ]},
 ];
 
-const KEY='png-preflight-v1';
+const KEY='png-preflight-v2', PREF='png-preflight-prefs';
 const list=document.getElementById('list');
 let state=JSON.parse(localStorage.getItem(KEY)||'{}');
+let prefs=Object.assign({cloud:'azure',target:'onprem',cat:'all',hideDone:false},JSON.parse(localStorage.getItem(PREF)||'{}'));
 const TAGLABEL={req:'Required',rec:'Recommended',got:'Gotcha'};
-const total=DATA.reduce((n,s)=>n+s.items.length,0);
+const pick=(v,c)=> (v&&typeof v==='object'&&!Array.isArray(v)) ? (v[c]??v.all??'') : (v||'');
+const applies=it=> (it.clouds||ALL).includes(prefs.cloud) && (it.targets||ALLT).includes(prefs.target);
+const visibleItems=sec=> sec.items.filter(it=>applies(it) && (prefs.cat==='all'||it.tag===prefs.cat));
 
+function savePrefs(){localStorage.setItem(PREF,JSON.stringify(prefs));}
 function render(){
-  list.innerHTML=DATA.map(sec=>{
-    const done=sec.items.filter(i=>state[i.id]).length;
-    const items=sec.items.map(it=>{
+  document.getElementById('cloudSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===prefs.cloud));
+  document.getElementById('targetSeg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===prefs.target));
+  document.getElementById('catChips').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===prefs.cat));
+  const bn=BANNERS[prefs.cloud];
+  const banner=document.getElementById('cloudBanner');
+  banner.className='cloudbanner '+prefs.cloud;
+  banner.innerHTML=`<span class="mech">${bn.mech}</span>${bn.h}`;
+
+  const c=prefs.cloud;
+  let html=DATA.map(sec=>{
+    const vis=visibleItems(sec);
+    if(!vis.length) return '';
+    const items=vis.map(it=>{
       const on=!!state[it.id];
+      const clouds=(it.clouds||ALL);
+      const ctags=clouds.length<3?`<span class="cloudtags">${clouds.map(cl=>`<span class="ctag ${cl}">${CLOUD_LABEL[cl]}</span>`).join('')}</span>`:'';
       const call=it.callout?`<div class="call got"><span class="ct">⚠ ${it.callout.t}</span>${it.callout.h}</div>`:'';
-      const code=it.code?`<pre><code>${it.code}</code></pre>`:'';
+      const codeVal=pick(it.code,c);
+      const code=codeVal?`<pre><code>${codeVal}</code></pre>`:'';
       return `<label class="item${on?' done':''}" data-done="${on}">
-        <input type="checkbox" class="cbx" data-id="${it.id}" ${on?'checked':''} aria-label="${it.title}">
-        <div>
-          <div class="it-head"><span class="it-title">${it.title}</span><span class="badge ${it.tag}">${TAGLABEL[it.tag]}</span></div>
-          <div class="it-body">${it.body}</div>${call}${code}
-        </div>
-      </label>`;
+        <input type="checkbox" class="cbx" data-id="${it.id}" ${on?'checked':''} aria-label="${pick(it.title,c)}">
+        <div><div class="it-head"><span class="it-title">${pick(it.title,c)}</span>
+          <span class="badge ${it.tag}">${TAGLABEL[it.tag]}</span>${ctags}</div>
+          <div class="it-body">${pick(it.body,c)}</div>${call}${code}</div></label>`;
     }).join('');
+    const done=vis.filter(i=>state[i.id]).length;
     return `<section data-sec="${sec.id}">
       <div class="sec-head" role="button" tabindex="0" aria-expanded="true">
         <span class="sec-ico"><svg viewBox="0 0 24 24">${ICONS[sec.icon]}</svg></span>
-        <h2>${sec.title}</h2>
-        <span class="sec-count">${done}/${sec.items.length}</span>
-        <span class="sec-chev">▾</span>
-      </div>
-      <div class="items">${items}</div>
-    </section>`;
+        <h2>${sec.title}</h2><span class="sec-count">${done}/${vis.length}</span><span class="sec-chev">▾</span>
+      </div><div class="items">${items}</div></section>`;
   }).join('');
-  updateProgress();
-  applyHideDone();
+  list.innerHTML=html||'<div class="empty">No checklist items match this combination. Try a different cloud, target, or filter.</div>';
+  updateProgress();applyHideDone();
 }
+function allVisible(){let a=[];DATA.forEach(s=>a=a.concat(visibleItems(s)));return a;}
 function updateProgress(){
-  const done=Object.values(state).filter(Boolean).length;
-  const pct=total?Math.round(done/total*100):0;
+  const vis=allVisible(),done=vis.filter(i=>state[i.id]).length,pct=vis.length?Math.round(done/vis.length*100):0;
   document.getElementById('pctNum').textContent=pct+'%';
-  document.getElementById('pctFrac').textContent=`${done} / ${total} complete`;
+  document.getElementById('pctFrac').textContent=`${done} / ${vis.length}`;
   document.getElementById('barFill').style.width=pct+'%';
+}
+function applyHideDone(){document.querySelectorAll('.item').forEach(el=>{el.style.display=(prefs.hideDone&&el.dataset.done==='true')?'none':'';});}
+
+function updateCounts(){
   DATA.forEach(sec=>{
     const el=document.querySelector(`section[data-sec="${sec.id}"] .sec-count`);
-    if(el){const d=sec.items.filter(i=>state[i.id]).length;el.textContent=`${d}/${sec.items.length}`;}
-  });
-}
-let hideDone=false;
-function applyHideDone(){
-  document.querySelectorAll('.item').forEach(el=>{
-    el.style.display=(hideDone && el.dataset.done==='true')?'none':'';
+    if(el){const vis=visibleItems(sec);el.textContent=`${vis.filter(i=>state[i.id]).length}/${vis.length}`;}
   });
 }
 list.addEventListener('change',e=>{
   if(!e.target.classList.contains('cbx'))return;
   const id=e.target.dataset.id;
-  if(e.target.checked)state[id]=true; else delete state[id];
+  if(e.target.checked)state[id]=true;else delete state[id];
   localStorage.setItem(KEY,JSON.stringify(state));
-  const item=e.target.closest('.item');
-  item.classList.toggle('done',e.target.checked);
-  item.dataset.done=e.target.checked;
-  updateProgress();applyHideDone();
+  const it=e.target.closest('.item');it.classList.toggle('done',e.target.checked);it.dataset.done=String(e.target.checked);
+  updateCounts();updateProgress();applyHideDone();
 });
-function toggleSec(head){
-  const sec=head.closest('section');
-  sec.classList.toggle('collapsed');
-  head.setAttribute('aria-expanded',!sec.classList.contains('collapsed'));
-}
+function toggleSec(h){const s=h.closest('section');s.classList.toggle('collapsed');h.setAttribute('aria-expanded',!s.classList.contains('collapsed'));}
 list.addEventListener('click',e=>{const h=e.target.closest('.sec-head');if(h)toggleSec(h);});
 list.addEventListener('keydown',e=>{const h=e.target.closest('.sec-head');if(h&&(e.key==='Enter'||e.key===' ')){e.preventDefault();toggleSec(h);}});
-document.getElementById('expandAll').onclick=()=>document.querySelectorAll('section').forEach(s=>{s.classList.remove('collapsed');s.querySelector('.sec-head').setAttribute('aria-expanded','true');});
-document.getElementById('collapseAll').onclick=()=>document.querySelectorAll('section').forEach(s=>{s.classList.add('collapsed');s.querySelector('.sec-head').setAttribute('aria-expanded','false');});
-document.getElementById('hideDone').onclick=e=>{hideDone=!hideDone;e.target.style.color=hideDone?'var(--accent)':'';e.target.textContent=hideDone?'Show all':'Hide completed';applyHideDone();};
+
+function segHandler(segId,key){document.getElementById(segId).addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs[key]=b.dataset.v;savePrefs();render();});}
+segHandler('cloudSeg','cloud');segHandler('targetSeg','target');
+document.getElementById('catChips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;prefs.cat=b.dataset.c;savePrefs();render();});
+document.getElementById('expandAll').onclick=()=>document.querySelectorAll('section').forEach(s=>{s.classList.remove('collapsed');});
+document.getElementById('collapseAll').onclick=()=>document.querySelectorAll('section').forEach(s=>{s.classList.add('collapsed');});
+document.getElementById('hideDone').onclick=e=>{prefs.hideDone=!prefs.hideDone;savePrefs();e.target.style.color=prefs.hideDone?'var(--accent)':'';e.target.textContent=prefs.hideDone?'Show all':'Hide completed';applyHideDone();};
+document.getElementById('printBtn').onclick=()=>window.print();
 document.getElementById('resetAll').onclick=()=>{if(confirm('Reset all checklist progress?')){state={};localStorage.removeItem(KEY);render();}};
+document.getElementById('copyMd').onclick=async e=>{
+  const c=prefs.cloud;let md=`# Serverless Private Connectivity Pre-flight — ${CLOUD_LABEL[c]} · target: ${prefs.target}\n\n`;
+  DATA.forEach(sec=>{const vis=visibleItems(sec);if(!vis.length)return;md+=`## ${sec.title}\n`;
+    vis.forEach(it=>{md+=`- [${state[it.id]?'x':' '}] (${TAGLABEL[it.tag]}) ${pick(it.title,c)}\n`;});md+='\n';});
+  try{await navigator.clipboard.writeText(md);const o=e.target.textContent;e.target.textContent='✓ Copied';setTimeout(()=>e.target.innerHTML='<span class="k">⧉</span> Copy as Markdown',1500);}catch(_){alert('Copy failed');}
+};
+if(prefs.hideDone){const b=document.getElementById('hideDone');b.style.color='var(--accent)';b.textContent='Show all';}
 render();
 </script>
 </body>
