@@ -305,7 +305,6 @@ const FEATURES=[
   {ico:'dns',t:'DNS resolution',d:'The make-or-break part: resolver recursion, reachability, and keeping public names resolvable.'},
   {ico:'route',t:'Egress scope & destinations',d:'traffic_mode, destinations, and egress firewall — scoped as tight as it should be.'},
   {ico:'check',t:'Validation smoke tests',d:'Prove resolution and connection end-to-end, private and public, before sign-off.'},
-  {ico:'shield',t:'Operational readiness',d:'Retry/backoff, monitoring, and a change runbook so re-enabling never breaks the next run.'},
 ];
 const ALL=['azure','aws','gcp'], ALLT=['onprem','internal','public'];
 const DATA=[
@@ -345,11 +344,6 @@ const DATA=[
    {id:'conn-code',tag:'rec',clouds:['azure'],targets:['onprem','internal'],title:'Connectivity test snippet (IPv6 TCP connect)',body:'Once nslookup looks right, confirm an actual TCP connection to the target port over <b>IPv6</b> (PNG targets resolve to IPv6). Example — SQL Server on 1433:',code:{azure:'import socket\nhost = "sqlhost.intra.local"\nport = 1433\n<span class="c"># force IPv6 — PNG targets resolve to an IPv6 address</span>\nfor family in (socket.AF_INET6,):\n    addrs = socket.getaddrinfo(host, port, family, socket.SOCK_STREAM)\n    for _, socktype, proto, _, sockaddr in addrs:\n        s = socket.socket(family, socktype, proto); s.settimeout(5)\n        try:\n            s.connect(sockaddr); print("SUCCESS", sockaddr)\n        except Exception as e:\n            print("FAIL", sockaddr, e)\n        finally:\n            s.close()'}},
    {id:'pubdep',tag:'req',targets:['public','onprem','internal'],title:'Validate public dependencies still work',body:'The most-missed check. Every external host your jobs call must still resolve and connect once private connectivity is on.'},
    {id:'e2e',tag:'req',title:'Run the real job end-to-end before sign-off',body:'These issues surface on the <b>next scheduled run</b>, not a quick interactive test. Run the full pipeline once with private connectivity enabled first.'},
- ]},
- {id:'ops',title:'Operational readiness',icon:'shield',items:[
-   {id:'retry',tag:'rec',title:'Make jobs resilient to transient blips',body:'Add retry-with-backoff on <code>NameResolutionError</code>/<code>ConnectionError</code> and checkpoint long pulls, so one transient blip doesn\'t kill a multi-hour job.',code:'import time, requests\ndef get_with_retry(url, **kw):\n    for i in range(5):\n        try:\n            return requests.get(url, timeout=30, **kw)\n        except requests.exceptions.ConnectionError:\n            if i == 4: raise\n            time.sleep(2 ** i)   <span class="c"># 1,2,4,8s</span>'},
-   {id:'monitor',tag:'rec',title:'Monitor connectivity + resolver/endpoint health',body:{azure:'Alert on DNS resolution failures and resolver/gateway availability.',aws:'Alert on private endpoint health and DNS; watch for rules stuck pending or egress-policy drops.',gcp:'Alert on PSC endpoint health and DNS; watch for producer-rejected connections.'}},
-   {id:'runbook',tag:'rec',title:'Document a change runbook',body:'Capture that enabling/changing private connectivity affects the next run, who owns the resolver/endpoint, and how to roll back. Treat it as a change event, not a toggle.'},
  ]},
 ];
 
