@@ -230,6 +230,20 @@
   </div>
 </div>
 
+<!-- ============ TRAFFIC MODE ============ -->
+<div class="view" id="v-trafficmode">
+  <div class="wrap">
+    <div class="stepper" data-step="trafficmode"></div>
+    <div class="choose">
+      <span class="eyebrow">Step 3</span>
+      <h2>Which PNG traffic mode?</h2>
+      <p class="s">This decides how the serverless egress firewall (SEG) treats your destinations — and whether you need a NAT Gateway / Azure Firewall.</p>
+      <div class="opts target" id="modeOpts"></div>
+      <div class="backrow"><button class="btn-back" data-go="target">← Back</button></div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ CHECKLIST ============ -->
 <div class="view" id="v-checklist">
   <div class="wrap">
@@ -240,6 +254,7 @@
         <div class="selbar">
           <span class="selpill azure" id="selCloud"><span class="dot"></span>Azure · PNG</span>
           <span class="selpill" id="selTarget">On-prem</span>
+          <span class="selpill" id="selMode">SPECIFIC_DESTINATIONS</span>
           <button class="change" data-go="cloud">Change</button>
         </div>
       </div>
@@ -299,6 +314,10 @@ const TARGETS=[
   {id:'internal',name:'Cloud-internal service',ico:'net',desc:'A private service in your cloud, reached via PrivateLink / PSC / private endpoint.'},
   {id:'public',name:'Public / SaaS dependency',ico:'globe',desc:'An internet-hosted API/SaaS your jobs call — must keep resolving under private egress.'},
 ];
+const MODES=[
+  {id:'specific',name:'SPECIFIC_DESTINATIONS',ico:'route',desc:'Only the FQDNs/CIDRs you list route through PNG; everything else goes direct. PNG auto-adds those destinations to the SEG allowlist as <code>PNG_IMPLICIT</code>.'},
+  {id:'all',name:'ALL_TRAFFIC',ico:'net',desc:'All serverless egress routes through the gateway. PNG adds nothing to SEG (it honors the existing allowlist), and you need a NAT Gateway / Azure Firewall for public egress.'},
+];
 const FEATURES=[
   {ico:'gear',t:'NCC & prerequisites',d:'Account-level NCC, workspace attach, and the cloud landing zone that fronts your private target.'},
   {ico:'net',t:'Network & routing',d:'Gateway subnet, peering/ExpressRoute/VPN or private endpoint rules — only what your target needs.'},
@@ -306,7 +325,7 @@ const FEATURES=[
   {ico:'route',t:'Egress scope & destinations',d:'traffic_mode, destinations, and egress firewall — scoped as tight as it should be.'},
   {ico:'check',t:'Validation smoke tests',d:'Prove resolution and connection end-to-end, private and public, before sign-off.'},
 ];
-const ALL=['azure','aws','gcp'], ALLT=['onprem','internal','public'];
+const ALL=['azure','aws','gcp'], ALLT=['onprem','internal','public'], ALLM=['specific','all'];
 const DATA=[
  {id:'prereq',title:'Account & NCC prerequisites',icon:'gear',items:[
    {id:'ncc',tag:'req',title:'NCC created and attached to the workspace',body:'Serverless private connectivity is built on a <b>Network Connectivity Configuration</b> — an account-level, regional construct (account-admin to create). Attach it to the target workspace and confirm the <b>NCC region matches the workspace region</b>.'},
@@ -332,10 +351,12 @@ const DATA=[
  ]},
  {id:'scope',title:'Egress scope & destinations',icon:'route',items:[
    {id:'mode',tag:'req',clouds:['azure'],targets:['onprem','internal'],title:'traffic_mode chosen deliberately',body:'<code>SPECIFIC_DESTINATIONS</code> routes only listed private FQDNs/CIDRs through PNG; <code>ALL_TRAFFIC</code> sends all serverless egress through the gateway. Pick the narrowest that works.',code:{azure:'"traffic_mode": "SPECIFIC_DESTINATIONS",\n"destinations": [\n  { "destination_type": "DNS_NAME", "value": "sqlhost.intra.local" }\n]'}},
-   {id:'scope-gotcha',tag:'got',clouds:['azure'],title:'Traffic scoping ≠ DNS scoping',body:'A narrow <code>SPECIFIC_DESTINATIONS</code> policy scopes network <b>routing</b>, but the private resolver can still apply to <b>all</b> DNS — so a “private-only” traffic policy can still hijack public name resolution.',callout:{t:'Validate explicitly',h:'After enabling PNG with a scoped traffic mode, confirm a <b>public</b> hostname still resolves from serverless.'}},
+   {id:'scope-gotcha',tag:'got',clouds:['azure'],modes:['specific'],title:'Traffic scoping ≠ DNS scoping',body:'A narrow <code>SPECIFIC_DESTINATIONS</code> policy scopes network <b>routing</b>, but the private resolver can still apply to <b>all</b> DNS — so a “private-only” traffic policy can still hijack public name resolution.',callout:{t:'Validate explicitly',h:'After enabling PNG with a scoped traffic mode, confirm a <b>public</b> hostname still resolves from serverless.'}},
    {id:'netpol',tag:'req',clouds:['aws','gcp'],targets:['public'],title:'Public/SaaS host allowlisted in the egress firewall',body:'If serverless egress control (network policy) is on, outbound is allowlist-based. Add every external host your jobs call, or the connection is dropped.'},
    {id:'netpol-az',tag:'req',clouds:['azure'],targets:['public'],title:'Public/SaaS reachability under PNG',body:'Confirm public/SaaS endpoints your jobs call still <b>resolve and connect</b> once PNG is enabled — the resolver must forward their names. This is the most common PNG regression.'},
-   {id:'seg',tag:'req',clouds:['azure'],title:'Serverless egress firewall (SEG) allows the destination',body:'The <b>serverless egress firewall (SEG)</b> is evaluated <b>before</b> PNG, so it can drop traffic before it ever routes to the gateway. In <code>SPECIFIC_DESTINATIONS</code> mode, a SEG block on the destination stops it reaching PNG; in <code>ALL_TRAFFIC</code> mode with SEG in <b>restrict</b> mode, the destination must be <b>explicitly allowlisted</b> in SEG or it is dropped.',callout:{t:'SEG and PNG must agree',h:'A perfectly-configured PNG still fails if SEG doesn\'t permit the destination. Add every PNG destination (FQDN/IP) to the SEG allowlist, and confirm the SEG mode (restrict vs. open) is consistent with your <code>traffic_mode</code>.'}},
+   {id:'seg-specific',tag:'req',clouds:['azure'],modes:['specific'],title:'PNG destinations are auto-allowed in SEG (PNG_IMPLICIT)',body:'In <code>SPECIFIC_DESTINATIONS</code> mode, the PNG\'s explicit destination FQDNs are <b>automatically added to the SEG allowlist</b>, tagged <code>PNG_IMPLICIT</code> — you do <b>not</b> need to manually allowlist them in SEG. Confirm every host you reach via PNG is on the PNG <code>destinations</code> list; anything not listed gets no implicit allow and won\'t route through PNG.',callout:{t:'Worked example',h:'In SPECIFIC mode, destinations like <code>corp.adobe.com</code> on the PNG list are all <code>PNG_IMPLICIT</code>-allowed automatically — no manual SEG entry needed.'}},
+   {id:'seg-all',tag:'req',clouds:['azure'],modes:['all'],title:'SEG must explicitly allow every destination',body:'In <code>ALL_TRAFFIC</code> mode, PNG adds <b>nothing</b> to the egress policy — it honors <b>SEG\'s existing allowlist</b>. There is no <code>PNG_IMPLICIT</code> auto-add, so every destination (private <em>and</em> public) your workloads reach must be <b>explicitly allowlisted in SEG</b>, or it is dropped.'},
+   {id:'all-nat',tag:'req',clouds:['azure'],modes:['all'],title:'NAT Gateway or Azure Firewall for public egress',body:'<code>ALL_TRAFFIC</code> routes <b>all</b> serverless egress through the gateway, so reaching the public internet requires a proper <b>NAT Gateway or Azure Firewall</b> to provide the public IP (SNAT). Without it, public/SaaS destinations have no outbound path.'},
  ]},
  {id:'validate',title:'Validation smoke tests',icon:'check',items:[
    {id:'nslookup-png',tag:'req',clouds:['azure'],targets:['onprem','internal'],title:'First test — nslookup the target and read the IPv6 prefix',body:'The fastest way to confirm traffic actually routes through PNG. From a serverless notebook, <code>nslookup</code> the private host — it should return an <b>IPv6</b> address, and the prefix tells you the route.',callout:{t:'How to read the result',h:'<b>64:ff9b:1:…</b> → routed via <b>PNG</b> ✅ (what you want). &nbsp;<b>::ffff:…</b> (IPv4-mapped) → routed via <b>Private Link</b>, not PNG — a private endpoint is winning the precedence and bypassing PNG. &nbsp;No IPv6 / NXDOMAIN → DNS isn\'t resolving to the gateway (resolver problem).'},code:{azure:'<span class="c">%sh</span>\nnslookup sqlhost.intra.local\n<span class="c"># 64:ff9b:1:…  → via PNG ✅</span>\n<span class="c"># ::ffff:…      → via Private Link (bypassing PNG)</span>'}},
@@ -349,10 +370,10 @@ const DATA=[
 
 const KEY='png-preflight-v3', PREF='png-preflight-prefs3';
 let state=JSON.parse(localStorage.getItem(KEY)||'{}');
-let prefs=Object.assign({cloud:'azure',target:'onprem',cat:'all',hideDone:false,started:false},JSON.parse(localStorage.getItem(PREF)||'{}'));
+let prefs=Object.assign({cloud:'azure',target:'onprem',trafficmode:'specific',cat:'all',hideDone:false,started:false},JSON.parse(localStorage.getItem(PREF)||'{}'));
 const TAGLABEL={req:'Required',rec:'Recommended',got:'Gotcha'};
 const pick=(v,c)=> (v&&typeof v==='object'&&!Array.isArray(v)) ? (v[c]??v.all??'') : (v||'');
-const applies=it=> (it.clouds||ALL).includes(prefs.cloud) && (it.targets||ALLT).includes(prefs.target);
+const applies=it=> (it.clouds||ALL).includes(prefs.cloud) && (it.targets||ALLT).includes(prefs.target) && (it.modes||ALLM).includes(prefs.trafficmode);
 const visibleItems=sec=> sec.items.filter(it=>applies(it) && (prefs.cat==='all'||it.tag===prefs.cat));
 const allVisible=()=>{let a=[];DATA.forEach(s=>a=a.concat(visibleItems(s)));return a;};
 const savePrefs=()=>localStorage.setItem(PREF,JSON.stringify(prefs));
@@ -370,10 +391,11 @@ $('cloudOpts').innerHTML=CLOUDS.map(c=>{
     <h3>${c.name}</h3><span class="mech">${c.mech}</span><p>${c.desc}</p></div>`;
 }).join('');
 $('targetOpts').innerHTML=TARGETS.map(t=>`<div class="opt tgt" role="button" tabindex="0" data-target="${t.id}"><div class="oico"><svg viewBox="0 0 24 24">${ICONS[t.ico]}</svg></div><h3>${t.name}</h3><p>${t.desc}</p></div>`).join('');
+$('modeOpts').innerHTML=MODES.map(m=>`<div class="opt tgt" role="button" tabindex="0" data-mode="${m.id}"><div class="oico"><svg viewBox="0 0 24 24">${ICONS[m.ico]}</svg></div><h3 style="font-family:var(--mono);font-size:.98rem">${m.name}</h3><p>${m.desc}</p></div>`).join('');
 
 /* ---- stepper ---- */
 function buildSteppers(){
-  const steps=[['cloud','Cloud'],['target','Scope'],['checklist','Checklist']];
+  const steps=[['cloud','Cloud'],['target','Scope'],['trafficmode','Traffic mode'],['checklist','Checklist']];
   document.querySelectorAll('.stepper').forEach(el=>{
     const cur=el.dataset.step, ci=steps.findIndex(s=>s[0]===cur);
     el.innerHTML=steps.map((s,i)=>{
@@ -398,7 +420,7 @@ $('startBtn').onclick=()=>{ if(prefs.started){enterChecklist();} else {showView(
 $('startOver').onclick=()=>{
   if(!confirm('Start over? This clears your saved progress and selections.')) return;
   state={}; localStorage.removeItem(KEY);
-  prefs={cloud:'azure',target:'onprem',cat:'all',hideDone:false,started:false};
+  prefs={cloud:'azure',target:'onprem',trafficmode:'specific',cat:'all',hideDone:false,started:false};
   localStorage.setItem(PREF,JSON.stringify(prefs));
   const hd=$('hideDone'); hd.style.color=''; hd.textContent='Hide completed';
   refreshStart(); showView('intro');
@@ -407,11 +429,18 @@ document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showView(b.datas
 
 /* ---- cloud / target selection ---- */
 function chooseCloud(id){const c=CLOUDS.find(x=>x.id===id);if(!c||c.status!=='on')return;prefs.cloud=id;savePrefs();showView('target');}
-function chooseTarget(id){prefs.target=id;prefs.started=true;savePrefs();refreshStart();enterChecklist();}
+function chooseTarget(id){
+  prefs.target=id;savePrefs();
+  if(prefs.cloud==='azure'){ showView('trafficmode'); }   // PNG traffic mode only applies to Azure
+  else { prefs.started=true;savePrefs();refreshStart();enterChecklist(); }
+}
+function chooseMode(id){prefs.trafficmode=id;prefs.started=true;savePrefs();refreshStart();enterChecklist();}
 $('cloudOpts').addEventListener('click',e=>{const o=e.target.closest('[data-cloud]');if(o)chooseCloud(o.dataset.cloud);});
 $('cloudOpts').addEventListener('keydown',e=>{const o=e.target.closest('[data-cloud]');if(o&&(e.key==='Enter'||e.key===' ')){e.preventDefault();chooseCloud(o.dataset.cloud);}});
 $('targetOpts').addEventListener('click',e=>{const o=e.target.closest('[data-target]');if(o)chooseTarget(o.dataset.target);});
 $('targetOpts').addEventListener('keydown',e=>{const o=e.target.closest('[data-target]');if(o&&(e.key==='Enter'||e.key===' ')){e.preventDefault();chooseTarget(o.dataset.target);}});
+$('modeOpts').addEventListener('click',e=>{const o=e.target.closest('[data-mode]');if(o)chooseMode(o.dataset.mode);});
+$('modeOpts').addEventListener('keydown',e=>{const o=e.target.closest('[data-mode]');if(o&&(e.key==='Enter'||e.key===' ')){e.preventDefault();chooseMode(o.dataset.mode);}});
 
 /* ---- checklist ---- */
 function enterChecklist(){ showView('checklist'); renderChecklist(); }
@@ -422,6 +451,9 @@ function renderChecklist(){
   $('selCloud').innerHTML=`<span class="dot"></span>${cl.name} · ${cl.mech.split(' ').map(w=>w[0]).join('')==='PNG'?'PNG':cl.mech}`;
   $('selCloud').className='selpill '+c;
   $('selTarget').textContent=(TARGETS.find(t=>t.id===prefs.target)||{}).name||prefs.target;
+  const mp=$('selMode');
+  if(prefs.cloud==='azure'){mp.style.display='';mp.textContent=(MODES.find(m=>m.id===prefs.trafficmode)||{}).name||prefs.trafficmode;}
+  else{mp.style.display='none';}
   const html=DATA.map(sec=>{
     const vis=visibleItems(sec); if(!vis.length) return '';
     const items=vis.map(it=>{
